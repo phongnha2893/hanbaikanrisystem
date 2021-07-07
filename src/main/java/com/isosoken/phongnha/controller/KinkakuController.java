@@ -210,7 +210,7 @@ public class KinkakuController {
 
         List<String> importDataDoneList = receivableBalanceImportDataStatusService.getAllUrikakezandakauchiwakeImportStatusDone();
         model.addAttribute("listMonths", importDataDoneList);
-        return "uchiwake-export";
+        return "urikakekin-uchiwake-export";
 
     }
 
