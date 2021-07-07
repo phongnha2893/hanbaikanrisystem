@@ -12,7 +12,7 @@
     <artifactId>phongnha</artifactId>
     <version>0.0.1-SNAPSHOT</version>
     <name>customer</name>
-    <packaging>war</packaging>
+    <packaging>jar</packaging>
     <description>customer input</description>
     <properties>
         <java.version>11</java.version>
