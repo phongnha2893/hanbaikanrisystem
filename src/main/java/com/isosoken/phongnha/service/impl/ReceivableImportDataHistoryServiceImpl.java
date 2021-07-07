@@ -15,11 +15,16 @@ import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Scope;
+import org.springframework.context.annotation.ScopedProxyMode;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
 
 import javax.servlet.http.HttpServletResponse;
+import javax.transaction.Transactional;
 import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -28,9 +33,13 @@ import java.util.Iterator;
 import java.util.List;
 
 @Service
+@Scope(proxyMode = ScopedProxyMode.DEFAULT)
+@Transactional
 public class ReceivableImportDataHistoryServiceImpl implements ReceivableImportDataHistoryService, CommonFileService {
     private static final Logger LOGGER = LoggerFactory.getLogger(ReceivableImportDataHistoryServiceImpl.class);
     private static final int BATCH_SIZE = 100;
+    private static final int EXCEL_MAXSIZE = 20000;
+    private static final int PDF_MAXSIZE = 300; // free version
     @Autowired
     private ReceivableImportDataHistoryRepository receivableImportDataHistoryRepository;
     @Autowired
@@ -84,83 +93,83 @@ public class ReceivableImportDataHistoryServiceImpl implements ReceivableImportD
         CellStyle errorStyle = creatErrorCellStyle(sheet);
 
         try {
-            while (rowIterator.hasNext()) {
-                Row row = rowIterator.next();
+        while (rowIterator.hasNext()) {
+            Row row = rowIterator.next();
 
-                if (row.getCell(0) == null) {
-                    if (row.getCell(1) == null) continue;
-                    if ("【総 合 計】".equals(row.getCell(1).getStringCellValue())) {
-                        receivableImportDataHistoryRepository.saveAll(batchSaveToDb);
-                        importDataStatus.setStatus(Constants.RECEIVABLE_BALANCE_IMPORT_STATUS.DONE);
-                        receivableBalanceImportDataStatusRepository.save(importDataStatus);
-                        workbook.close();
-                        return;
-                    }
-                }
-
-                if (!arrived) {
-                    if ("コード".equals(row.getCell(0).getStringCellValue())) {
-                        arrived = true;
-                        continue;
-                    }
-                }
-
-                if (arrived) {
-                    if (batchSaveToDb.size() == BATCH_SIZE) {
-                        receivableImportDataHistoryRepository.saveAll(batchSaveToDb);
-                        batchSaveToDb.clear();
-                    }
-                    Cell customerCode = row.getCell(0);
-                    Cell customerName = row.getCell(1);
-                    Cell previousMonthBalance = row.getCell(2);
-                    Cell totalDepositMonth = row.getCell(3);
-                    Cell balanceCarriedForward = row.getCell(4);
-                    Cell saleAmountNotIncludeTax = row.getCell(5);
-                    Cell tax = row.getCell(6);
-                    Cell saleAmountTaxIncluded = row.getCell(7);
-                    Cell monthBalance = row.getCell(8);
-
-                    if (customerCode == null || customerName == null || previousMonthBalance == null
-                            || totalDepositMonth == null || balanceCarriedForward == null || saleAmountNotIncludeTax == null
-                            || tax == null || saleAmountTaxIncluded == null || monthBalance == null) {
-                        row.createCell(0).setCellStyle(errorStyle);
-                        importDataStatus.setStatus(Constants.RECEIVABLE_BALANCE_IMPORT_STATUS.ERROR);
-                        receivableBalanceImportDataStatusRepository.save(importDataStatus);
-                        throw new Exception(new StringBuilder("Error in sheet 売掛金残高一覧表 on line " + (row.getRowNum() + 1))
-                                .append("<a href=\"/download/" + fileType + "/" + file.getName() + "\">" + file.getName() + "</a>").toString());
-                    }
-
-                    Long customerCodeValue = (long) customerCode.getNumericCellValue();
-                    String customerNameValue = customerName.getStringCellValue();
-                    Long previousMonthBalanceValue = (long) previousMonthBalance.getNumericCellValue();
-                    Long totalDepositMonthValue = (long) totalDepositMonth.getNumericCellValue();
-                    Long balanceCarriedForwardValue = (long) balanceCarriedForward.getNumericCellValue();
-                    Long saleAmountNotIncludeTaxValue = (long) saleAmountNotIncludeTax.getNumericCellValue();
-                    Long taxValue = (long) tax.getNumericCellValue();
-                    Long saleAmountTaxIncludedValue = (long) saleAmountTaxIncluded.getNumericCellValue();
-                    Long monthBalanceValue = (long) monthBalance.getNumericCellValue();
-
-                    Customer customer = customerRepository.findFirstByCustomerCode(customerCodeValue);
-                    if (customer == null) {
-                        customer = new Customer();
-                        customer.setCustomerCode(customerCodeValue);
-                        customer.setCustomerName(customerNameValue);
-                        customerRepository.save(customer);
-                    }
-
-                    ReceivableImportDataHistory receivableImportDataHistory = new ReceivableImportDataHistory();
-                    receivableImportDataHistory.setCustomerCode(customerCodeValue);
-                    receivableImportDataHistory.setImportMonth(importMonth);
-                    receivableImportDataHistory.setPreviousMonthBalance(previousMonthBalanceValue);
-                    receivableImportDataHistory.setTotalDepositMonth(totalDepositMonthValue);
-                    receivableImportDataHistory.setBalanceCarriedForward(balanceCarriedForwardValue);
-                    receivableImportDataHistory.setSaleAmountNotIncludeTax(saleAmountNotIncludeTaxValue);
-                    receivableImportDataHistory.setTax(taxValue);
-                    receivableImportDataHistory.setSaleAmountTaxIncluded(saleAmountTaxIncludedValue);
-                    receivableImportDataHistory.setMonthBalance(monthBalanceValue);
-                    batchSaveToDb.add(receivableImportDataHistory);
+            if (row.getCell(0) == null) {
+                if (row.getCell(1) == null) continue;
+                if ("【総 合 計】".equals(row.getCell(1).getStringCellValue())) {
+                    receivableImportDataHistoryRepository.saveAll(batchSaveToDb);
+                    importDataStatus.setStatus(Constants.RECEIVABLE_BALANCE_IMPORT_STATUS.DONE);
+                    receivableBalanceImportDataStatusRepository.save(importDataStatus);
+                    workbook.close();
+                    return;
                 }
             }
+
+            if (!arrived) {
+                if ("コード".equals(row.getCell(0).getStringCellValue())) {
+                    arrived = true;
+                    continue;
+                }
+            }
+
+            if (arrived) {
+                if (batchSaveToDb.size() == BATCH_SIZE) {
+                    receivableImportDataHistoryRepository.saveAll(batchSaveToDb);
+                    batchSaveToDb.clear();
+                }
+                Cell customerCode = row.getCell(0);
+                Cell customerName = row.getCell(1);
+                Cell previousMonthBalance = row.getCell(2);
+                Cell totalDepositMonth = row.getCell(3);
+                Cell balanceCarriedForward = row.getCell(4);
+                Cell saleAmountNotIncludeTax = row.getCell(5);
+                Cell tax = row.getCell(6);
+                Cell saleAmountTaxIncluded = row.getCell(7);
+                Cell monthBalance = row.getCell(8);
+
+                if (customerCode == null || customerName == null || previousMonthBalance == null
+                        || totalDepositMonth == null || balanceCarriedForward == null || saleAmountNotIncludeTax == null
+                        || tax == null || saleAmountTaxIncluded == null || monthBalance == null) {
+                    row.createCell(0).setCellStyle(errorStyle);
+                    importDataStatus.setStatus(Constants.RECEIVABLE_BALANCE_IMPORT_STATUS.ERROR);
+                    receivableBalanceImportDataStatusRepository.save(importDataStatus);
+                    throw new Exception(new StringBuilder("Error in sheet 売掛金残高一覧表 on line " + (row.getRowNum() + 1))
+                            .append("<a href=\"/download/" + fileType + "/" + file.getName() + "\">" + file.getName() + "</a>").toString());
+                }
+
+                Long customerCodeValue = (long) customerCode.getNumericCellValue();
+                String customerNameValue = customerName.getCellType() == CellType.NUMERIC ? String.valueOf(customerName.getNumericCellValue()) : customerName.getStringCellValue();
+                Long previousMonthBalanceValue = (long) previousMonthBalance.getNumericCellValue();
+                Long totalDepositMonthValue = (long) totalDepositMonth.getNumericCellValue();
+                Long balanceCarriedForwardValue = (long) balanceCarriedForward.getNumericCellValue();
+                Long saleAmountNotIncludeTaxValue = (long) saleAmountNotIncludeTax.getNumericCellValue();
+                Long taxValue = (long) tax.getNumericCellValue();
+                Long saleAmountTaxIncludedValue = (long) saleAmountTaxIncluded.getNumericCellValue();
+                Long monthBalanceValue = (long) monthBalance.getNumericCellValue();
+
+                Customer customer = customerRepository.findFirstByCustomerCode(customerCodeValue);
+                if (customer == null) {
+                    customer = new Customer();
+                    customer.setCustomerCode(customerCodeValue);
+                    customer.setCustomerName(customerNameValue);
+                    customerRepository.save(customer);
+                }
+
+                ReceivableImportDataHistory receivableImportDataHistory = new ReceivableImportDataHistory();
+                receivableImportDataHistory.setCustomerCode(customerCodeValue);
+                receivableImportDataHistory.setImportMonth(importMonth);
+                receivableImportDataHistory.setPreviousMonthBalance(previousMonthBalanceValue);
+                receivableImportDataHistory.setTotalDepositMonth(totalDepositMonthValue);
+                receivableImportDataHistory.setBalanceCarriedForward(balanceCarriedForwardValue);
+                receivableImportDataHistory.setSaleAmountNotIncludeTax(saleAmountNotIncludeTaxValue);
+                receivableImportDataHistory.setTax(taxValue);
+                receivableImportDataHistory.setSaleAmountTaxIncluded(saleAmountTaxIncludedValue);
+                receivableImportDataHistory.setMonthBalance(monthBalanceValue);
+                batchSaveToDb.add(receivableImportDataHistory);
+            }
+        }
         } catch (Exception e) {
             importDataStatus.setType(Constants.RECEIVABLE_BALANCE_IMPORT_TYPE.URIKAKEZANDAKA);
             importDataStatus.setStatus(Constants.RECEIVABLE_BALANCE_IMPORT_STATUS.ERROR);
@@ -209,10 +218,54 @@ public class ReceivableImportDataHistoryServiceImpl implements ReceivableImportD
     }
 
     @Override
-    public void exportMaeukekinFile(HttpServletResponse httpServletResponse, String... args) {
-        if (args == null || args.length == 0) return;
-        String monthExport = args[0];
-        String fileType = args[1];
+    public int exportMaeukekinFileLinks(String month, String type) {
+        int maxSize = 0;
+        switch (type) {
+            case "excel":
+                maxSize = EXCEL_MAXSIZE;
+                break;
+            case "pdf":
+                maxSize = PDF_MAXSIZE;
+                break;
+        }
+        long maeukekinCount = receivableImportDataHistoryRepository.countAllByImportMonthAndMonthBalanceIsLessThan(month, 0l);
+        if (maeukekinCount == 0) return 0;
+        if (maeukekinCount % maxSize == 0) {
+            return ((int) maeukekinCount / maxSize);
+        }
+        return ((int) maeukekinCount / maxSize + 1);
+    }
+
+    @Override
+    public int exportUrikazandakauchiwakeFileLinks(String month, String type) {
+        int maxSize = 0;
+        switch (type) {
+            case "excel":
+                maxSize = EXCEL_MAXSIZE;
+                break;
+            case "pdf":
+                maxSize = PDF_MAXSIZE;
+                break;
+        }
+        long urikazandakauchiwakeCount = receivableImportDataHistoryRepository.countAllByImportMonthAndMonthBalanceIsGreaterThan(month, 0l);
+        if (urikazandakauchiwakeCount == 0) return 0;
+        if (urikazandakauchiwakeCount % maxSize == 0) {
+            return (int) urikazandakauchiwakeCount / maxSize;
+        }
+        return (int) urikazandakauchiwakeCount / maxSize + 1;
+    }
+
+    @Override
+    public void exportMaeukekinFile(HttpServletResponse httpServletResponse, String monthExport, String type, Integer page) {
+        int maxSize = 0;
+        switch (type) {
+            case "excel":
+                maxSize = EXCEL_MAXSIZE;
+                break;
+            case "pdf":
+                maxSize = PDF_MAXSIZE;
+                break;
+        }
         String[] times = monthExport.split("-");
         String year = times[0];
         String month = times[1];
@@ -244,7 +297,9 @@ public class ReceivableImportDataHistoryServiceImpl implements ReceivableImportD
 
         int rowIndex = 5;
 
-        List<ReceivableImportDataHistory> receivableImportDataHistories = receivableImportDataHistoryRepository.findAllByImportMonthAndMonthBalanceIsLessThan(monthExport, 0l);
+        Page<ReceivableImportDataHistory> receivableImportDataHistoriesPage = receivableImportDataHistoryRepository.findAllByImportMonthAndMonthBalanceIsLessThan(PageRequest.of(page, maxSize), monthExport, 0l);
+        if (receivableImportDataHistoriesPage.isEmpty()) return;
+        List<ReceivableImportDataHistory> receivableImportDataHistories = receivableImportDataHistoriesPage.getContent();
         if (CollectionUtils.isEmpty(receivableImportDataHistories)) return;
         Long sumPreviousMonthBalance = 0l;
         Long sumTotalDepositMonth = 0l;
@@ -328,15 +383,22 @@ public class ReceivableImportDataHistoryServiceImpl implements ReceivableImportD
         cell.setCellStyle(numberStyle);
         cell.setCellValue(sumMonthBalance);
 
-        writeWorkbookToHttpResponse(workbook, httpServletResponse, "Maeukekin-".concat(monthExport), fileType,
+        writeWorkbookToHttpResponse(workbook, httpServletResponse, "Maeukekin-page".concat(String.valueOf(page + 1))
+                        .concat("-").concat(monthExport), type,
                 13.8, 13.8 * 2.1, 13.8 * 1.1, 13.8 * 1.1, 13.8 * 1.1, 13.8 * 1.1, 13.8 * 1.1, 13.8 * 1.1, 13.8 * 1.1);
     }
 
     @Override
-    public void exportUrikazandakauchiwakeFile(HttpServletResponse httpServletResponse, String... args) {
-        if (args == null || args.length == 0) return;
-        String monthExport = args[0];
-        String fileType = args[1];
+    public void exportUrikazandakauchiwakeFile(HttpServletResponse httpServletResponse, String monthExport, String type, Integer page) {
+        int maxSize = 0;
+        switch (type) {
+            case "excel":
+                maxSize = EXCEL_MAXSIZE;
+                break;
+            case "pdf":
+                maxSize = PDF_MAXSIZE;
+                break;
+        }
         String[] times = monthExport.split("-");
         String year = times[0];
         String month = times[1];
@@ -372,8 +434,9 @@ public class ReceivableImportDataHistoryServiceImpl implements ReceivableImportD
 
         int rowIndex = 5;
 
-        List<ReceivableImportDataHistory> receivableImportDataHistories = receivableImportDataHistoryRepository.findAllByImportMonthAndMonthBalanceGreaterThan(monthExport, 0l);
-        if (CollectionUtils.isEmpty(receivableImportDataHistories)) return;
+        Page<ReceivableImportDataHistory> receivableImportDataHistoriesPage = receivableImportDataHistoryRepository.findAllByImportMonthAndMonthBalanceGreaterThan(PageRequest.of(page, maxSize), monthExport, 0l);
+        if (receivableImportDataHistoriesPage.isEmpty()) return;
+        List<ReceivableImportDataHistory> receivableImportDataHistories = receivableImportDataHistoriesPage.getContent();
         Long sumPreviousMonthBalance = 0l;
         Long sumTotalDepositMonth = 0l;
         Long sumBalanceCarriedForward = 0l;
@@ -487,7 +550,8 @@ public class ReceivableImportDataHistoryServiceImpl implements ReceivableImportD
         cell.setCellStyle(numberStyle);
         cell.setCellValue(sumMonthBalance);
 
-        writeWorkbookToHttpResponse(workbook, httpServletResponse, "Urikazandakauchiwake-".concat(monthExport), fileType,
+        writeWorkbookToHttpResponse(workbook, httpServletResponse, "Urikazandakauchiwake-page".
+                        concat(String.valueOf(page + 1)).concat("-").concat(monthExport), type,
                 13.8, 13.8 * 2, 13.8 * 0.8, 13.8 * 0.8, 13.8 * 0.8, 13.8 * 0.8, 13.8 * 0.8, 13.8 * 0.8, 13.8 * 0.8, 13.8 * 0.8, 13.8 * 0.8, 13.8 * 0.8);
     }
 

@@ -11,11 +11,13 @@ import java.util.List;
 @Repository
 public interface ReceivableImportDataHistoryRepository extends JpaRepository<ReceivableImportDataHistory, Long> {
 
-    List<ReceivableImportDataHistory> deleteAllByImportMonth(String importMonth);
+    void deleteAllByImportMonth(String importMonth);
 
-    Page<ReceivableImportDataHistory> findAllByImportMonth(String importMonth, Pageable pageable);
+    long countAllByImportMonthAndMonthBalanceIsLessThan(String importMonth, Long balance);
 
-    List<ReceivableImportDataHistory> findAllByImportMonthAndMonthBalanceIsLessThan(String importMonth, Long balance);
+    long countAllByImportMonthAndMonthBalanceIsGreaterThan(String importMonth, Long balance);
 
-    List<ReceivableImportDataHistory> findAllByImportMonthAndMonthBalanceGreaterThan(String importMonth, Long balance);
+    Page<ReceivableImportDataHistory> findAllByImportMonthAndMonthBalanceIsLessThan(Pageable pageable, String importMonth, Long balance);
+
+    Page<ReceivableImportDataHistory> findAllByImportMonthAndMonthBalanceGreaterThan(Pageable pageable, String importMonth, Long balance);
 }

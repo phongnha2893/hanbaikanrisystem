@@ -10,10 +10,7 @@ import org.springframework.core.env.Environment;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.ModelAttribute;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import javax.servlet.http.HttpServletResponse;
@@ -156,11 +153,13 @@ public class KinkakuController {
                 fileService.readExcelFile(excelUploadedFile, fileType);
                 fileService.excuteWhenReadSuccess(excelUploadedFile);
             }
+            excelUploadedFile.delete();
             return importFile(model, fileType, "Process file success!", null);
         } catch (Exception e) {
             for (CommonFileService fileService : fileServices) {
                 fileService.excuteWhenReadFailed(excelUploadedFile);
             }
+            excelUploadedFile.delete();
             return importFile(model, fileType, null, e.getMessage());
         }
     }
@@ -173,10 +172,25 @@ public class KinkakuController {
         return "maeukekin-export";
     }
 
-    @PostMapping(path = "/export/maeukekin")
+    @PostMapping(path = "/export/maeukekin/links")
     @PreAuthorize("hasAnyRole('ADMIN')")
-    public void downloadMaeukekin(@ModelAttribute("month") String month, @ModelAttribute("type") String type, HttpServletResponse response) {
-        receivableImportDataHistoryService.exportMaeukekinFile(response, month, type);
+    public String downloadMaeukekinLinks(@ModelAttribute("month") String month, @ModelAttribute("type") String type, Model model) {
+        int numLinks = receivableImportDataHistoryService.exportMaeukekinFileLinks(month, type);
+        String links = downloadExportFileBuilder("maeukekin", type, month, numLinks);
+        model.addAttribute("success", links);
+
+        List<ReceivableBalanceImportDataStatus> importDataDoneList = receivableBalanceImportDataStatusService.getAllMaeukekinImportStatusDone();
+        List<String> listMonths = importDataDoneList.stream().map(status -> status.getImportMonth()).collect(Collectors.toList());
+        model.addAttribute("listMonths", listMonths);
+        return "maeukekin-export";
+
+    }
+
+
+    @GetMapping(path = "/export/maeukekin")
+    @PreAuthorize("hasAnyRole('ADMIN')")
+    public void downloadMaeukekin(@RequestParam("month") String month, @RequestParam("type") String type, @RequestParam("page") Integer page, HttpServletResponse response) {
+        receivableImportDataHistoryService.exportMaeukekinFile(response, month, type, page);
     }
 
 
@@ -187,10 +201,23 @@ public class KinkakuController {
         return "urikakekin-uchiwake-export";
     }
 
-    @PostMapping(path = "/export/urikakezandakauchiwake")
+    @PostMapping(path = "/export/urikakezandakauchiwake/links")
     @PreAuthorize("hasAnyRole('ADMIN')")
-    public void downloadUrikakezandakauchiwake(@ModelAttribute("month") String month, @ModelAttribute("type") String type, HttpServletResponse response) {
-        receivableImportDataHistoryService.exportUrikazandakauchiwakeFile(response, month, type);
+    public String downloadUrikakekinUchiwakeLinks(@ModelAttribute("month") String month, @ModelAttribute("type") String type, Model model) {
+        int numLinks = receivableImportDataHistoryService.exportUrikazandakauchiwakeFileLinks(month, type);
+        String links = downloadExportFileBuilder("urikakezandakauchiwake", type, month, numLinks);
+        model.addAttribute("success", links);
+
+        List<String> importDataDoneList = receivableBalanceImportDataStatusService.getAllUrikakezandakauchiwakeImportStatusDone();
+        model.addAttribute("listMonths", importDataDoneList);
+        return "uchiwake-export";
+
+    }
+
+    @GetMapping(path = "/export/urikakezandakauchiwake")
+    @PreAuthorize("hasAnyRole('ADMIN')")
+    public void downloadUrikakezandakauchiwake(@RequestParam("month") String month, @RequestParam("type") String type, @RequestParam("page") Integer page, HttpServletResponse response) {
+        receivableImportDataHistoryService.exportUrikazandakauchiwakeFile(response, month, type, page);
     }
 
 
@@ -213,6 +240,21 @@ public class KinkakuController {
         stringBuilder.append("<a href=\"/import-file/" + fileType + "\">" + "Cancel</a>").append("</button>");
         stringBuilder.append("</div>");
 
+        return stringBuilder.toString();
+    }
+
+    private String downloadExportFileBuilder(String type, String fileType, String month, int numLinks) {
+
+        StringBuilder stringBuilder = new StringBuilder();
+
+        stringBuilder.append("Download file: ");
+        stringBuilder.append("<br/>");
+        stringBuilder.append("<br/>");
+
+        for (int i = 0; i < numLinks; i++) {
+            stringBuilder.append("<a href=\"/export/" + type + "?month=" + month + "&type=" + fileType +
+                    "&page=" + i + "\">" + i + "</a> <span>&emsp;</span>");
+        }
         return stringBuilder.toString();
     }
 

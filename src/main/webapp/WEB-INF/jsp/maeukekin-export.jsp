@@ -264,7 +264,7 @@
                 </div>
             </div>
             <f:form method="post"
-                    action="/export/maeukekin" >
+                    action="/export/maeukekin/links" >
                 <div class="form-group-inner">
                     <div class="row">
                         <div class="col-lg-3 col-md-3 col-sm-3 col-xs-12">
