@@ -78,7 +78,7 @@ public class KinkakuController {
                     break;
             }
             return importFile(model, fileType, uploadSuccessMessageBuilder(fileName, fileType), null);
-        } catch (IOException e) {
+        } catch (Exception e) {
             return importFile(model, fileType, null, e.getMessage());
         }
     }
@@ -121,11 +121,15 @@ public class KinkakuController {
                 fileStorage = urikakezandakauchiwakeStorage;
                 break;
         }
+        try {
         boolean deleted = fileStorage.deleteFile(fileName);
         String success = deleted ? "Delete file success!" : null;
         String error = deleted ? null : "Delete file error!";
 
         return importFile(model, fileType, success, error);
+        } catch (Exception e) {
+            return importFile(model, fileType, null, e.getMessage());
+        }
     }
 
     @GetMapping(path = "process/{fileType}/{fileName}")

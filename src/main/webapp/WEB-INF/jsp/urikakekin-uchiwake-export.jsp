@@ -291,7 +291,7 @@
                             <div class="form-select-list">
                                 <select class="form-control custom-select-value" name="type">
                                     <option value="excel" selected > Excel </option>
-                                    <option value="pdf" > Pdf </option>
+                                    <option value="pdf" disabled > Pdf </option>
                                 </select>
                             </div>
                         </div>
