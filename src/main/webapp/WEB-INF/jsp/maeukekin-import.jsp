@@ -268,6 +268,8 @@
                     <div class="row">
                         <div class="col-lg-3 col-md-12 col-sm-12 col-xs-12">
                             <label class="login2 pull-right pull-right-pro">売掛金残高一覧表</label>
+                            <p style="color: red"> 注：シート名は「売掛金残高一覧表」である必要があります</p>
+                            <a href="/download-sample/Maeukenkin-importFileSample.xlsx">サンプルファイルのダウンロード</a>
                         </div>
                         <div class="col-lg-9 col-md-12 col-sm-12 col-xs-12">
                             <div class="file-upload-inner ts-forms">

@@ -289,6 +289,8 @@
                     <div class="row">
                         <div class="col-lg-3 col-md-12 col-sm-12 col-xs-12">
                             <label class="login2 pull-right pull-right-pro">売掛金残高内訳表</label>
+                            <p style="color: red"> 「売掛金残高一覧表」、「RP入金データ」、「変換テーブル」、「NSS入金データ」の4ページのシートが含まれています</p>
+                            <a href="/download-sample/Urikakezandakauchiwake-importFileSample.xlsx">サンプルファイルのダウンロード</a>
                         </div>
                         <div class="col-lg-9 col-md-12 col-sm-12 col-xs-12">
                             <div class="file-upload-inner ts-forms">

@@ -27,10 +27,12 @@ public class KinkakuController {
 
     private static final String MAEUKEKIN_UPLOAD_DIR = "upload/maeukekin";
     private static final String URIKAKEZANDAKA_UCHIWAKE_UPLOAD_DIR = "upload/urikakezandakauchiwake";
+    private static final String SAMPLE_FILE_DIR = "sample";
 
 
     private FileStorage maeukekinStorage;
     private FileStorage urikakezandakauchiwakeStorage;
+    private FileStorage sampleFileStorage;
     private ReceivableImportDataHistoryService receivableImportDataHistoryService;
     private RpDepositDataService rpDepositDataService;
     private NssDepositDataService nssDepositDataService;
@@ -42,6 +44,7 @@ public class KinkakuController {
                              ReceivableBalanceImportDataStatusService receivableBalanceImportDataStatusService) {
         this.maeukekinStorage = new FileStorage(env, FileStorage.StorageType.LOCAL, MAEUKEKIN_UPLOAD_DIR);
         this.urikakezandakauchiwakeStorage = new FileStorage(env, FileStorage.StorageType.LOCAL, URIKAKEZANDAKA_UCHIWAKE_UPLOAD_DIR);
+        this.sampleFileStorage = new FileStorage(env, FileStorage.StorageType.LOCAL, SAMPLE_FILE_DIR);
         this.receivableImportDataHistoryService = receivableImportDataHistoryService;
         this.rpDepositDataService = rpDepositDataService;
         this.nssDepositDataService = nssDepositDataService;
@@ -83,6 +86,24 @@ public class KinkakuController {
         }
     }
 
+    @GetMapping(path = "download-sample/{fileName}")
+    @PreAuthorize("hasAnyRole('ADMIN')")
+    public void downloadSample(@PathVariable String fileName, HttpServletResponse response) {
+        Path path = new File(sampleFileStorage.getDir(), fileName).toPath();
+        if (path.toFile().exists()) {
+            response.setContentType("plain/text");
+            response.addHeader("Content-Disposition", "attachment; filename=" + fileName);
+            try {
+                Files.copy(path, response.getOutputStream());
+                response.getOutputStream().flush();
+            } catch (IOException ex) {
+                LOGGER.error(ex.toString(), ex);
+            }
+        }
+        return;
+    }
+
+
     @GetMapping(path = "download/{fileType}/{fileName}")
     @PreAuthorize("hasAnyRole('ADMIN')")
     public void downloadUploadedFile(@PathVariable String fileType, @PathVariable String fileName, HttpServletResponse response) {
@@ -122,11 +143,11 @@ public class KinkakuController {
                 break;
         }
         try {
-        boolean deleted = fileStorage.deleteFile(fileName);
-        String success = deleted ? "Delete file success!" : null;
-        String error = deleted ? null : "Delete file error!";
+            boolean deleted = fileStorage.deleteFile(fileName);
+            String success = deleted ? "Delete file success!" : null;
+            String error = deleted ? null : "Delete file error!";
 
-        return importFile(model, fileType, success, error);
+            return importFile(model, fileType, success, error);
         } catch (Exception e) {
             return importFile(model, fileType, null, e.getMessage());
         }
